@@ -37,7 +37,7 @@
           },
           "Detect sentiment": {
             "Type": "Task",
-            "Next": "Transform output",
+            "Next": "Append result to output .csv file",
             "Parameters": {
               "LanguageCode.$": "$.detectDominantLanguageResult.Languages[0].LanguageCode",
               "Text.$": "$.review"
@@ -45,16 +45,25 @@
             "Resource": "arn:aws:states:::aws-sdk:comprehend:detectSentiment",
             "ResultPath": "$.detectSentimentResult"
           },
-          "Transform output": {
-            "Type": "Pass",
-            "End": true,
+          "Append result to output .csv file": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-              "id.$": "$.id",
-              "product_id.$": "$.product_id",
-              "title.$": "$.title",
-              "review.$": "$.review",
-              "sentiment.$": "$.detectSentimentResult.Sentiment"
-            }
+              "FunctionName": "${AppendToCsvFunctionArn}",
+              "Payload": {
+                "targetS3Bucket.$": "$.etlResult.targetS3Bucket",
+                "targetS3Key.$": "$.etlResult.targetS3Key",
+                "itemWillBeAdded": {
+                  "id.$": "$.id",
+                  "product_id.$": "$.product_id",
+                  "title.$": "$.title",
+                  "review.$": "$.review",
+                  "sentiment.$": "$.detectSentimentResult.Sentiment"
+                }
+              }
+            },
+            "End": true,
+            "ResultPath": null
           }
         }
       },
@@ -71,14 +80,15 @@
       },
       "Label": "GetreviewsfromS3anditerateoverthem",
       "End": true,
-      "ResultWriter": {
-        "Resource": "arn:aws:states:::s3:putObject",
-        "Parameters": {
-          "Bucket.$": "$.etlOutput.targetS3Bucket",
-          "Prefix.$": "$.etlOutput.targetS3Key"
-        }
-      },
-      "MaxConcurrency": 1
+      "MaxConcurrency": 1,
+      "ResultPath": null,
+      "ItemSelector": {
+        "id.$": "$$.Map.Item.Value.id",
+        "product_id.$": "$$.Map.Item.Value.product_id",
+        "title.$": "$$.Map.Item.Value.title",
+        "review.$": "$$.Map.Item.Value.review",
+        "etlResult.$": "$.etlResult"
+      }
     }
   }
 }

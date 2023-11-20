@@ -43,7 +43,8 @@ export class MainStack extends Stack {
         envName: props.envName,
         appName: props.appName,
         description: "Creates Lambda functions for the sentiment analysis application.",
-        queryResultsBucket: s3Stack.getQueryResultsBucket()
+        queryResultsBucket: s3Stack.getQueryResultsBucket(),
+        etlResultsBucket: s3Stack.getEtlResultsBucket()
       }
     );
 
@@ -67,7 +68,8 @@ export class MainStack extends Stack {
         sentimentAnalysisStateMachineRole: iamStack.getSentimentAnalysisStateMachineRole(),
         queryResultsBucket: s3Stack.getQueryResultsBucket(),
         etlResultsBucket: s3Stack.getEtlResultsBucket(),
-        getFromDbAndSaveToStorageFunction: lambdaStack.getGetFromDbAndSaveToStorage()
+        getFromDbAndSaveToStorageFunction: lambdaStack.getGetFromDbAndSaveToStorage(),
+        appendToCsvFunction: lambdaStack.getAppendToCsv()
       }
     );
 

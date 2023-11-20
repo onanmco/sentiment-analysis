@@ -9,11 +9,13 @@ interface LambdaStackProps extends NestedStackProps {
   envName: string;
   appName: string;
   queryResultsBucket: IBucket;
+  etlResultsBucket: IBucket;
 }
 
 export class LambdaStack extends NestedStack {
 
   private readonly getFromDbAndSaveToStorage: IFunction;
+  private readonly appendToCsv: IFunction;
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
@@ -41,10 +43,33 @@ export class LambdaStack extends NestedStack {
       ManagedPolicy.fromAwsManagedPolicyName("AmazonDynamoDBReadOnlyAccess")
     );
 
+    this.appendToCsv = new NodejsFunction(
+      this,
+      "append-to-csv-function",
+      {
+        functionName: `${props.envName}-${props.appName}-append-to-csv`,
+        architecture: Architecture.X86_64,
+        timeout: Duration.minutes(1),
+        runtime: Runtime.NODEJS_18_X,
+        entry: "src/lambda/append-to-csv/index.ts",
+        handler: "handler",
+        bundling: {
+          minify: true,
+          sourceMap: true
+        }
+      }
+    );
+
+    props.etlResultsBucket.grantReadWrite(this.appendToCsv);
+
   }
 
   public getGetFromDbAndSaveToStorage(): IFunction {
     return this.getFromDbAndSaveToStorage;
+  }
+
+  public getAppendToCsv(): IFunction {
+    return this.appendToCsv;
   }
 
 }

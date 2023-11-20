@@ -13,6 +13,7 @@ interface StepFunctionStackProps extends NestedStackProps {
   queryResultsBucket: IBucket;
   etlResultsBucket: IBucket;
   getFromDbAndSaveToStorageFunction: IFunction;
+  appendToCsvFunction: IFunction;
 }
 
 export class StepFunctionStack extends NestedStack {
@@ -30,7 +31,8 @@ export class StepFunctionStack extends NestedStack {
         roleArn: props.sentimentAnalysisStateMachineRole.roleArn,
         definitionString: readFileSync("src/step-function-definition/sentiment-analysis.asl.json", "utf-8"),
         definitionSubstitutions: {
-          "GetFromDbAndSaveToStorageFunctionArn": props.getFromDbAndSaveToStorageFunction.latestVersion.functionArn
+          "GetFromDbAndSaveToStorageFunctionArn": props.getFromDbAndSaveToStorageFunction.latestVersion.functionArn,
+          "AppendToCsvFunctionArn": props.appendToCsvFunction.latestVersion.functionArn,
         }
       }
     );
