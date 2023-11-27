@@ -14,41 +14,47 @@
           "targetS3Key.$": "$.queryInput.targetS3Key"
         }
       },
-      "Next": "Get reviews from S3 and iterate over them",
+      "Next": "Parallel",
       "ResultPath": null
     },
-    "Get reviews from S3 and iterate over them": {
-      "Type": "Map",
-      "ItemProcessor": {
-        "ProcessorConfig": {
-          "Mode": "DISTRIBUTED",
-          "ExecutionType": "EXPRESS"
-        },
-        "StartAt": "Detect dominant language",
-        "States": {
-          "Detect dominant language": {
-            "Type": "Task",
-            "Next": "Detect sentiment",
-            "Parameters": {
-              "Text.$": "$.review"
-            },
-            "Resource": "arn:aws:states:::aws-sdk:comprehend:detectDominantLanguage",
-            "ResultPath": "$.detectDominantLanguageResult"
-          },
-          "Detect sentiment": {
-            "Type": "Task",
-            "Next": "Append result to output .csv file",
-            "Parameters": {
-              "LanguageCode.$": "$.detectDominantLanguageResult.Languages[0].LanguageCode",
-              "Text.$": "$.review"
-            },
-            "Resource": "arn:aws:states:::aws-sdk:comprehend:detectSentiment",
-            "ResultPath": "$.detectSentimentResult"
-          },
-          "Append result to output .csv file": {
-            "Type": "Task",
-            "Resource": "arn:aws:states:::lambda:invoke",
-            "Parameters": {
+    "Parallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Get reviews from S3 and iterate over them",
+          "States": {
+            "Get reviews from S3 and iterate over them": {
+              "Type": "Map",
+              "ItemProcessor": {
+                "ProcessorConfig": {
+                  "Mode": "DISTRIBUTED",
+                  "ExecutionType": "EXPRESS"
+                },
+                "StartAt": "Detect dominant language",
+                "States": {
+                  "Detect dominant language": {
+                    "Type": "Task",
+                    "Next": "Detect sentiment",
+                    "Parameters": {
+                      "Text.$": "$.review"
+                    },
+                    "Resource": "arn:aws:states:::aws-sdk:comprehend:detectDominantLanguage",
+                    "ResultPath": "$.detectDominantLanguageResult"
+                  },
+                  "Detect sentiment": {
+                    "Type": "Task",
+                    "Next": "Append result to output .csv file",
+                    "Parameters": {
+                      "LanguageCode.$": "$.detectDominantLanguageResult.Languages[0].LanguageCode",
+                      "Text.$": "$.review"
+                    },
+                    "Resource": "arn:aws:states:::aws-sdk:comprehend:detectSentiment",
+                    "ResultPath": "$.detectSentimentResult"
+                  },
+                  "Append result to output .csv file": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::lambda:invoke",
+                    "Parameters": {
               "FunctionName": "${AppendToCsvFunctionArn}",
               "Payload": {
                 "targetS3Bucket.$": "$.etlResult.targetS3Bucket",
@@ -89,6 +95,38 @@
         "review.$": "$$.Map.Item.Value.review",
         "etlResult.$": "$.etlResult"
       }
+            }
+          }
+        },
+        {
+          "StartAt": "Create manifest.json",
+          "States": {
+            "Create manifest.json": {
+              "Type": "Task",
+              "End": true,
+              "Parameters": {
+                "Body": {
+                  "fileLocations": [
+                    {
+                      "URIs.$": "States.Array(States.Format('s3://{}/{}', $.etlResult.targetS3Bucket, $.etlResult.targetS3Key))"
+                    }
+                  ],
+                  "globalUploadSettings": {
+                    "format": "CSV",
+                    "delimiter": ",",
+                    "textqualifier": "\"",
+                    "containsHeader": "true"
+                  }
+                },
+                "Bucket.$": "$.manifestFile.targetS3Bucket",
+                "Key.$": "$.manifestFile.targetS3Key"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:s3:putObject"
+            }
+          }
+        }
+      ],
+      "End": true
     }
   }
 }
